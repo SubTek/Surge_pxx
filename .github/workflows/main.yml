@@ -23,6 +23,31 @@ jobs:
           echo "THEOS=$HOME/theos" >> $GITHUB_ENV
           echo "PATH=$HOME/theos/bin:$PATH" >> $GITHUB_ENV
 
+      - name: Build OpenSSL for iOS
+        run: |
+          # Clone the OpenSSL repository
+          git clone https://github.com/openssl/openssl.git $HOME/openssl
+          cd $HOME/openssl
+          # Set up environment variables for iOS build
+          export PLATFORM="iPhoneOS"
+          export SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          export CC="$(xcrun --sdk iphoneos -f clang)"
+          export ARCHS="arm64 arm64e"
+          export CFLAGS="-arch arm64 -arch arm64e -isysroot $SDK -miphoneos-version-min=14.0"
+          export LDFLAGS="-arch arm64 -arch arm64e -isysroot $SDK"
+          # Configure OpenSSL to install into $HOME/openssl-ios
+          ./Configure ios64-cross no-shared no-dso no-hw no-engine --prefix=$HOME/openssl-ios
+          make clean
+          make -j$(sysctl -n hw.ncpu)
+          make install
+
+      - name: Patch Makefile for OpenSSL path (rootless)
+        run: |
+          # Replace the hard-coded OpenSSL path with the runner’s home directory version
+          sed -i '' "s#/Users/pxx917144686/openssl-ios#$HOME/openssl-ios#g" rootless/Makefile
+
       - name: Build Surge_pxx (rootless)
         working-directory: rootless
-        run: make
+        run: |
+          # Optionally pass THEOS_OPENSSL_DIR if your makefile supports it
+          make THEOS_OPENSSL_DIR=$HOME/openssl-ios
