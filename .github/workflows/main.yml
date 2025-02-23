@@ -1,6 +1,7 @@
 name: Build Surge_pxx
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -14,6 +15,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          persist-credentials: true
 
       - name: Clone Theos and set up environment
         run: |
@@ -25,17 +28,15 @@ jobs:
 
       - name: Build OpenSSL for iOS
         run: |
-          # Clone the OpenSSL repository
+          # Clone and build OpenSSL to $HOME/openssl-ios
           git clone https://github.com/openssl/openssl.git $HOME/openssl
           cd $HOME/openssl
-          # Set up environment variables for iOS build
           export PLATFORM="iPhoneOS"
           export SDK=$(xcrun --sdk iphoneos --show-sdk-path)
           export CC="$(xcrun --sdk iphoneos -f clang)"
           export ARCHS="arm64 arm64e"
           export CFLAGS="-arch arm64 -arch arm64e -isysroot $SDK -miphoneos-version-min=14.0"
           export LDFLAGS="-arch arm64 -arch arm64e -isysroot $SDK"
-          # Configure OpenSSL to install into $HOME/openssl-ios
           ./Configure ios64-cross no-shared no-dso no-hw no-engine --prefix=$HOME/openssl-ios
           make clean
           make -j$(sysctl -n hw.ncpu)
@@ -43,7 +44,7 @@ jobs:
 
       - name: Patch Makefile for OpenSSL path (rootless)
         run: |
-          # Replace the hard-coded OpenSSL path with the runner’s home directory version
+          # Replace the hard-coded OpenSSL path with the runner’s home directory path
           sed -i '' "s#/Users/pxx917144686/openssl-ios#$HOME/openssl-ios#g" rootless/Makefile
 
       - name: Install ldid
@@ -52,5 +53,16 @@ jobs:
       - name: Build Surge_pxx (rootless)
         working-directory: rootless
         run: |
-          # Optionally pass THEOS_OPENSSL_DIR if your makefile supports it
+          # Build using THEOS_OPENSSL_DIR variable if needed
           make THEOS_OPENSSL_DIR=$HOME/openssl-ios
+
+      - name: Create builds directory and copy built file
+        run: |
+          mkdir -p builds
+          cp rootless/.theos/obj/debug/Surge.dylib builds/
+
+      - name: Commit build artifact
+        uses: EndBug/add-and-commit@v9
+        with:
+          message: "Add Surge build artifact from GitHub Actions build"
+          add: "builds/Surge.dylib"
