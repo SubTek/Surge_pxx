@@ -1,0 +1,27 @@
+name: Build Surge_pxx
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Clone Theos and set up environment
+        run: |
+          # Clone Theos into the home directory
+          git clone --recursive https://github.com/theos/theos.git $HOME/theos
+          # Set THEOS environment variable and update PATH
+          echo "THEOS=$HOME/theos" >> $GITHUB_ENV
+          echo "PATH=$HOME/theos/bin:$PATH" >> $GITHUB_ENV
+
+      - name: Build the project with Theos
+        run: make
