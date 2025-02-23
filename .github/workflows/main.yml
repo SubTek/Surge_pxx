@@ -46,6 +46,9 @@ jobs:
           # Replace the hard-coded OpenSSL path with the runner’s home directory version
           sed -i '' "s#/Users/pxx917144686/openssl-ios#$HOME/openssl-ios#g" rootless/Makefile
 
+      - name: Install ldid
+        run: brew install ldid
+
       - name: Build Surge_pxx (rootless)
         working-directory: rootless
         run: |
